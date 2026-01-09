@@ -1,0 +1,13 @@
+{
+  "name": "your-skill-name",
+  "version": "1.0.0",
+  "package": "@antskill/your-skill-name",
+  "files": {
+    "reference.md": "reference.md",
+    "examples.md": "examples.md",
+    "scripts": "scripts/"
+  },
+  "hooks": {
+    "postinstall": "bash scripts/setup.sh"
+  }
+}

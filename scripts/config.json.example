@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "Configuration file for your skill",
+  "options": {
+    "option1": "default-value",
+    "option2": true,
+    "option3": 100,
+    "nested": {
+      "key": "value"
+    }
+  },
+  "features": {
+    "feature1": true,
+    "feature2": false
+  }
+}

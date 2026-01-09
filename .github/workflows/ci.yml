@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test Installation
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: [14.x, 16.x, 18.x, 20.x]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Install dependencies
+      run: npm ci || npm install
+
+    - name: Run installation test
+      run: npm test
+
+    - name: Verify SKILL.md format
+      run: |
+        if [ ! -f SKILL.md ]; then
+          echo "Error: SKILL.md not found"
+          exit 1
+        fi
+        # Check for required frontmatter
+        if ! grep -q "^---$" SKILL.md; then
+          echo "Error: SKILL.md missing frontmatter"
+          exit 1
+        fi
+      shell: bash
+
+    - name: Verify required files
+      run: |
+        required_files=(
+          "package.json"
+          "SKILL.md"
+          ".claude-skill.json"
+          "install-skill.js"
+          "uninstall-skill.js"
+        )
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$file" ]; then
+            echo "Error: Required file $file not found"
+            exit 1
+          fi
+        done
+      shell: bash
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+
+    - name: Check markdown files
+      uses: DavidAnson/markdownlint-cli2-action@v11
+      with:
+        globs: '**/*.md'
+      continue-on-error: true
+
+    - name: Check JSON files
+      run: |
+        echo "Checking JSON files..."
+        for file in $(find . -name "*.json" -not -path "*/node_modules/*"); do
+          echo "Validating $file"
+          cat "$file" | jq empty || exit 1
+        done
+      shell: bash
+
+  validate-skill:
+    name: Validate Skill Structure
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+
+    - name: Validate SKILL.md structure
+      run: |
+        echo "Validating SKILL.md structure..."
+
+        # Check for frontmatter
+        if ! head -n 1 SKILL.md | grep -q "^---$"; then
+          echo "Error: SKILL.md must start with frontmatter delimiter (---)"
+          exit 1
+        fi
+
+        # Extract frontmatter
+        frontmatter=$(sed -n '/^---$/,/^---$/p' SKILL.md | head -n -1 | tail -n +2)
+
+        # Check for required fields
+        if ! echo "$frontmatter" | grep -q "^name:"; then
+          echo "Error: SKILL.md frontmatter missing 'name' field"
+          exit 1
+        fi
+
+        if ! echo "$frontmatter" | grep -q "^description:"; then
+          echo "Error: SKILL.md frontmatter missing 'description' field"
+          exit 1
+        fi
+
+        # Extract name
+        skill_name=$(echo "$frontmatter" | grep "^name:" | cut -d' ' -f2- | tr -d ' ')
+
+        # Validate name format (lowercase, hyphens, max 64 chars)
+        if ! echo "$skill_name" | grep -Eq "^[a-z0-9-]{1,64}$"; then
+          echo "Error: Skill name must be lowercase letters, numbers, and hyphens only (max 64 chars)"
+          exit 1
+        fi
+
+        echo "✅ SKILL.md structure is valid"
+      shell: bash
+
+    - name: Validate .claude-skill.json
+      run: |
+        echo "Validating .claude-skill.json..."
+
+        # Check if file exists
+        if [ ! -f .claude-skill.json ]; then
+          echo "Error: .claude-skill.json not found"
+          exit 1
+        fi
+
+        # Validate JSON format
+        cat .claude-skill.json | jq empty || exit 1
+
+        # Check required fields
+        if ! jq -e '.name' .claude-skill.json > /dev/null; then
+          echo "Error: .claude-skill.json missing 'name' field"
+          exit 1
+        fi
+
+        echo "✅ .claude-skill.json is valid"
+      shell: bash

@@ -1,0 +1,42 @@
+{
+  "name": "@antskill/YOUR-SKILL-NAME",
+  "version": "1.0.0",
+  "description": "YOUR SKILL DESCRIPTION - Brief description of what this skill does",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node install-skill.js",
+    "preuninstall": "node uninstall-skill.js",
+    "test": "node install-skill.js && echo 'Installation test completed. Check ~/.claude/skills/'",
+    "lint": "echo 'Add your linting commands here'"
+  },
+  "files": [
+    "SKILL.md",
+    "reference.md",
+    "examples.md",
+    "scripts/",
+    "install-skill.js",
+    "uninstall-skill.js",
+    ".claude-skill.json"
+  ],
+  "keywords": [
+    "claude-code",
+    "skill",
+    "ai-assistant",
+    "agent-skill",
+    "claude",
+    "YOUR-KEYWORDS-HERE"
+  ],
+  "author": "YOUR NAME <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YOUR-USERNAME/YOUR-REPO-NAME/issues"
+  },
+  "homepage": "https://github.com/YOUR-USERNAME/YOUR-REPO-NAME#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
