@@ -4,82 +4,55 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-function getEnabledTargets(config) {
-  // 如果没有 targets 配置，使用默认的 Claude Code 配置（向后兼容）
-  if (!config.targets) {
-    return [{
-      name: 'claude-code',
-      paths: {
-        global: '.claude/skills',
-        project: '.claude/skills'
-      }
-    }];
-  }
-
-  // 返回所有启用的目标
-  return Object.entries(config.targets)
-    .filter(([_, target]) => target.enabled)
-    .map(([name, target]) => ({
-      name,
-      paths: target.paths
-    }));
-}
-
-function detectInstallLocation(targetPaths) {
-  // 检测是否为全局安装
-  const isGlobal = process.env.npm_config_global === 'true';
-
-  if (isGlobal) {
-    return {
-      type: 'personal',
-      base: path.join(os.homedir(), targetPaths.global)
-    };
-  } else {
-    // 项目级安装：查找项目根目录
-    let currentDir = process.cwd();
-    let projectRoot = currentDir;
-
-    while (projectRoot !== path.dirname(projectRoot)) {
-      if (fs.existsSync(path.join(projectRoot, 'package.json')) ||
-          fs.existsSync(path.join(projectRoot, '.git'))) {
-        break;
-      }
-      projectRoot = path.dirname(projectRoot);
-    }
-
-    return {
-      type: 'project',
-      base: path.join(projectRoot, targetPaths.project)
-    };
-  }
-}
+const { getEnabledTargets, extractSkillName, detectInstallLocation } = require('./utils');
 
 function uninstallFromTarget(target, config) {
   console.log(`\n🗑️  Uninstalling from ${target.name}...`);
 
-  const location = detectInstallLocation(target.paths);
-  const targetDir = path.join(location.base, config.name);
+  const isGlobal = process.env.npm_config_global === 'true';
+  const location = detectInstallLocation(target.paths, isGlobal);
+  
+  // Extract skill name from package name (remove scope prefix)
+  const skillName = extractSkillName(config.name);
+  
+  // Path format using skill name
+  const skillNameTargetDir = path.join(location.base, skillName);
+  
+  // Path format with full package name (including scope)
+  const fullPackageNameTargetDir = path.join(location.base, config.name);
+  
+  let removed = false;
+  
+  // Check and remove path using skill name
+  if (fs.existsSync(skillNameTargetDir)) {
+    fs.rmSync(skillNameTargetDir, { recursive: true, force: true });
+    console.log(`  ✓ Removed skill directory: ${skillName}`);
+    removed = true;
+  }
+  
+  // Check and remove path with full package name (for compatibility)
+  if (fs.existsSync(fullPackageNameTargetDir) && fullPackageNameTargetDir !== skillNameTargetDir) {
+    fs.rmSync(fullPackageNameTargetDir, { recursive: true, force: true });
+    console.log(`  ✓ Removed skill directory: ${config.name}`);
+    removed = true;
+  }
 
-  if (fs.existsSync(targetDir)) {
-    // 删除 skill 目录
-    fs.rmSync(targetDir, { recursive: true, force: true });
-    console.log(`  ✓ Removed skill directory`);
-
-    // 更新 manifest
-    const manifestPath = path.join(location.base, '.skills-manifest.json');
-    if (fs.existsSync(manifestPath)) {
-      try {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        if (manifest.skills && manifest.skills[config.name]) {
-          delete manifest.skills[config.name];
-          fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-          console.log(`  ✓ Updated manifest`);
-        }
-      } catch (error) {
-        console.warn('  Warning: Could not update manifest:', error.message);
+  // Update manifest
+  const manifestPath = path.join(location.base, '.skills-manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    try {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      if (manifest.skills && manifest.skills[config.name]) {
+        delete manifest.skills[config.name];
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+        console.log(`  ✓ Updated manifest`);
       }
+    } catch (error) {
+      console.warn('  Warning: Could not update manifest:', error.message);
     }
+  }
 
+  if (removed) {
     console.log(`  ✅ Uninstalled from ${target.name}`);
     return true;
   } else {
@@ -91,7 +64,7 @@ function uninstallFromTarget(target, config) {
 function uninstallSkill() {
   console.log('🗑️  Uninstalling AI Coding Skill...\n');
 
-  // 读取配置
+  // Read configuration
   const configPath = path.join(__dirname, '.claude-skill.json');
   if (!fs.existsSync(configPath)) {
     console.warn('Warning: .claude-skill.json not found, skipping cleanup');
@@ -100,7 +73,7 @@ function uninstallSkill() {
 
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-  // 获取启用的目标
+  // Get enabled targets
   const enabledTargets = getEnabledTargets(config);
 
   console.log(`Uninstalling skill "${config.name}" from ${enabledTargets.length} target(s):`);
@@ -108,7 +81,7 @@ function uninstallSkill() {
     console.log(`  • ${target.name}`);
   });
 
-  // 从所有启用的目标卸载
+  // Uninstall from all enabled targets
   const uninstalledFrom = [];
   for (const target of enabledTargets) {
     try {
@@ -121,7 +94,7 @@ function uninstallSkill() {
     }
   }
 
-  // 总结
+  // Summary
   console.log('\n' + '='.repeat(60));
   if (uninstalledFrom.length > 0) {
     console.log('✅ Uninstallation Complete!');
@@ -136,7 +109,7 @@ function uninstallSkill() {
   }
 }
 
-// 执行卸载
+// Execute uninstall
 try {
   uninstallSkill();
 } catch (error) {

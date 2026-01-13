@@ -4,74 +4,38 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-function getEnabledTargets(config) {
-  // 如果没有 targets 配置，使用默认的 Claude Code 配置（向后兼容）
-  if (!config.targets) {
-    return [{
-      name: 'claude-code',
-      paths: {
-        global: '.claude/skills',
-        project: '.claude/skills'
-      }
-    }];
-  }
-
-  // 返回所有启用的目标
-  return Object.entries(config.targets)
-    .filter(([_, target]) => target.enabled)
-    .map(([name, target]) => ({
-      name,
-      paths: target.paths
-    }));
-}
-
-function detectInstallLocation(targetPaths) {
-  // 检测是否为全局安装
-  const isGlobal = process.env.npm_config_global === 'true';
-
-  if (isGlobal) {
-    // 全局安装：安装到用户主目录
-    return {
-      type: 'personal',
-      base: path.join(os.homedir(), targetPaths.global)
-    };
-  } else {
-    // 项目级安装：查找项目根目录
-    let currentDir = process.cwd();
-    let projectRoot = currentDir;
-
-    // 向上查找 package.json 或 .git
-    while (projectRoot !== path.dirname(projectRoot)) {
-      if (fs.existsSync(path.join(projectRoot, 'package.json')) ||
-          fs.existsSync(path.join(projectRoot, '.git'))) {
-        break;
-      }
-      projectRoot = path.dirname(projectRoot);
-    }
-
-    return {
-      type: 'project',
-      base: path.join(projectRoot, targetPaths.project)
-    };
-  }
-}
+const { getEnabledTargets,extractSkillName, detectInstallLocation } = require('./utils');
 
 function installToTarget(target, config) {
   console.log(`\n📦 Installing to ${target.name}...`);
 
-  // 确定安装位置
+  // Determine installation location
   const location = detectInstallLocation(target.paths);
-  const targetDir = path.join(location.base, config.name);
+  
+  // Extract skill name from package name (remove scope prefix)
+  const skillName = extractSkillName(config.name);
+  
+  const targetDir = path.join(location.base, skillName);
+  
+  // Alternative path format with full package name (including scope)
+  const altTargetDir = path.join(location.base, config.name);
 
   console.log(`  Type: ${location.type}`);
   console.log(`  Directory: ${targetDir}`);
 
-  // 创建目标目录
+  // Clean up alternative path format (for compatibility)
+  if (fs.existsSync(altTargetDir) && altTargetDir !== targetDir) {
+    console.log(`  🧹 Cleaning up alternative path format...`);
+    fs.rmSync(altTargetDir, { recursive: true, force: true });
+    console.log(`  ✓ Removed directory: ${config.name}`);
+  }
+
+  // Create target directory
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
-  // 拷贝 SKILL.md（必需）
+  // Copy SKILL.md (required)
   const skillMdSource = path.join(__dirname, 'SKILL.md');
   if (!fs.existsSync(skillMdSource)) {
     throw new Error('SKILL.md is required but not found');
@@ -79,7 +43,7 @@ function installToTarget(target, config) {
   fs.copyFileSync(skillMdSource, path.join(targetDir, 'SKILL.md'));
   console.log('  ✓ Copied SKILL.md');
 
-  // 拷贝其他文件
+  // Copy other files
   if (config.files) {
     Object.entries(config.files).forEach(([source, dest]) => {
       const sourcePath = path.join(__dirname, source);
@@ -94,7 +58,7 @@ function installToTarget(target, config) {
         copyDir(sourcePath, destPath);
         console.log(`  ✓ Copied directory: ${source}`);
       } else {
-        // 确保目标目录存在
+        // Ensure target directory exists
         const destDir = path.dirname(destPath);
         if (!fs.existsSync(destDir)) {
           fs.mkdirSync(destDir, { recursive: true });
@@ -105,10 +69,10 @@ function installToTarget(target, config) {
     });
   }
 
-  // 更新 manifest
+  // Update manifest
   updateManifest(location.base, config, target.name);
 
-  // 运行 postinstall hooks
+  // Run postinstall hooks
   if (config.hooks && config.hooks.postinstall) {
     console.log('  🔧 Running postinstall hook...');
     const { execSync } = require('child_process');
@@ -130,14 +94,14 @@ function installToTarget(target, config) {
 function installSkill() {
   console.log('🚀 Installing AI Coding Skill...\n');
 
-  // 读取配置
+  // Read configuration
   const configPath = path.join(__dirname, '.claude-skill.json');
   if (!fs.existsSync(configPath)) {
     throw new Error('.claude-skill.json not found');
   }
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-  // 获取启用的目标
+  // Get enabled targets
   const enabledTargets = getEnabledTargets(config);
 
   if (enabledTargets.length === 0) {
@@ -151,7 +115,7 @@ function installSkill() {
     console.log(`  • ${target.name}`);
   });
 
-  // 安装到所有启用的目标
+  // Install to all enabled targets
   const installedPaths = [];
   for (const target of enabledTargets) {
     try {
@@ -162,7 +126,7 @@ function installSkill() {
     }
   }
 
-  // 总结
+  // Summary
   console.log('\n' + '='.repeat(60));
   console.log('✅ Installation Complete!');
   console.log('='.repeat(60));
@@ -209,18 +173,23 @@ function updateManifest(skillsDir, config, targetName) {
     }
   }
 
+  // Extract skill name from package name (remove scope prefix)
+  const skillName = config.name.startsWith('@') ? 
+    config.name.split('/')[1] || config.name : 
+    config.name;
+
   manifest.skills[config.name] = {
     version: config.version,
     installedAt: new Date().toISOString(),
     package: config.package || config.name,
-    path: path.join(skillsDir, config.name),
+    path: path.join(skillsDir, skillName),
     target: targetName
   };
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
-// 执行安装
+// Execute installation
 try {
   installSkill();
 } catch (error) {

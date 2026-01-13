@@ -292,6 +292,40 @@ When multiple skills exist:
 3. Project (`.claude/skills/`)
 4. Plugin
 
+## How Installation and Uninstallation Work
+
+This boilerplate includes automatic installation and uninstallation scripts that run when users install or remove your skill package via npm.
+
+### Installation Process
+
+When a user runs `npm install` (or `npm install -g`) on your skill package:
+
+1. **Target Detection**: The script identifies which AI coding tools are configured for installation based on `.claude-skill.json`
+2. **Scope Prefix Handling**: Extracts the actual skill name by removing any npm scope prefix (e.g., `@your-org/skill-name` becomes `skill-name`)
+3. **Path Resolution**: For each target tool, it determines the appropriate installation location:
+   - Global installation: `~/{tool-path}/skills/` (user's home directory)
+   - Project installation: `./{tool-path}/skills/` (project root directory)
+4. **Directory Setup**: Creates the skill directory using the skill name (without npm scope prefix)
+5. **File Copying**: Copies essential files:
+   - `SKILL.md` (required) - The main skill definition
+   - Any additional files specified in `.claude-skill.json`
+6. **Compatibility Cleanup**: Removes any legacy installation paths for backward compatibility
+7. **Manifest Update**: Updates the `.skills-manifest.json` to track installed skills
+8. **Post-install Hooks**: Runs any custom setup scripts defined in `.claude-skill.json`
+
+### Uninstallation Process
+
+When a user runs `npm uninstall` (or `npm uninstall -g`) on your skill package:
+
+1. **Target Detection**: Identifies which AI coding tools were configured for the skill
+2. **Scope Prefix Handling**: Uses both the skill name (without scope prefix) and full package name (with scope prefix) for compatibility
+3. **Path Resolution**: Determines the appropriate uninstallation locations
+4. **Directory Removal**: Removes the skill directory from all configured targets:
+   - Path using skill name (primary location)
+   - Path with full package name (legacy location for compatibility)
+5. **Manifest Update**: Removes the skill entry from `.skills-manifest.json`
+6. **Best-effort Cleanup**: Continues even if some steps fail to ensure clean removal
+
 ## 🔧 Advanced Features
 
 ### Custom Hooks
