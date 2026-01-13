@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+const CWD = process.env.INIT_CWD || process.cwd();
 const { getEnabledTargets,extractSkillName, detectInstallLocation } = require('./utils');
 
 function installToTarget(target, config) {
@@ -11,12 +12,12 @@ function installToTarget(target, config) {
 
   // Determine installation location
   const location = detectInstallLocation(target.paths);
-  
+
   // Extract skill name from package name (remove scope prefix)
   const skillName = extractSkillName(config.name);
-  
+
   const targetDir = path.join(location.base, skillName);
-  
+
   // Alternative path format with full package name (including scope)
   const altTargetDir = path.join(location.base, config.name);
 
@@ -174,8 +175,8 @@ function updateManifest(skillsDir, config, targetName) {
   }
 
   // Extract skill name from package name (remove scope prefix)
-  const skillName = config.name.startsWith('@') ? 
-    config.name.split('/')[1] || config.name : 
+  const skillName = config.name.startsWith('@') ?
+    config.name.split('/')[1] || config.name :
     config.name;
 
   manifest.skills[config.name] = {
