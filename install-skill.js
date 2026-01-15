@@ -9,8 +9,11 @@ const { getEnabledTargets,extractSkillName, detectInstallLocation } = require('.
 function installToTarget(target, config) {
   console.log(`\n📦 Installing to ${target.name}...`);
 
-  // Determine installation location
-  const location = detectInstallLocation(target.paths);
+  // 检测是否为全局安装
+  const isGlobal = process.env.npm_config_global === 'true';
+
+  // 确定安装位置
+  const location = detectInstallLocation(target.paths, isGlobal);
 
   // Extract skill name from package name (remove scope prefix)
   const skillName = extractSkillName(config.name);
@@ -20,10 +23,10 @@ function installToTarget(target, config) {
   // Alternative path format with full package name (including scope)
   const altTargetDir = path.join(location.base, config.name);
 
-  console.log(`  Type: ${location.type}`);
+  console.log(`  Type: ${location.type}${isGlobal ? ' (global)' : ' (project)'}`);
   console.log(`  Directory: ${targetDir}`);
 
-  // Clean up alternative path format (for compatibility)
+  // Clean up alternative path format
   if (fs.existsSync(altTargetDir) && altTargetDir !== targetDir) {
     console.log(`  🧹 Cleaning up alternative path format...`);
     fs.rmSync(altTargetDir, { recursive: true, force: true });
