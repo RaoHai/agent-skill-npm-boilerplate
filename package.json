@@ -17,7 +17,7 @@
     ".claude-skill.json"
   ],
   "dependencies": {
-    "@agent-skill/installer": "file:../agent-skill-installer"
+    "@agentskill/installer": "^1.0.0"
   },
   "keywords": [
     "claude-code",

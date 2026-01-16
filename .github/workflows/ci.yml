@@ -49,9 +49,6 @@ jobs:
         required_files=(
           "package.json"
           "SKILL.md"
-          ".claude-skill.json"
-          "install-skill.js"
-          "uninstall-skill.js"
         )
         for file in "${required_files[@]}"; do
           if [ ! -f "$file" ]; then
@@ -136,26 +133,4 @@ jobs:
         fi
 
         echo "✅ SKILL.md structure is valid"
-      shell: bash
-
-    - name: Validate .claude-skill.json
-      run: |
-        echo "Validating .claude-skill.json..."
-
-        # Check if file exists
-        if [ ! -f .claude-skill.json ]; then
-          echo "Error: .claude-skill.json not found"
-          exit 1
-        fi
-
-        # Validate JSON format
-        cat .claude-skill.json | jq empty || exit 1
-
-        # Check required fields
-        if ! jq -e '.name' .claude-skill.json > /dev/null; then
-          echo "Error: .claude-skill.json missing 'name' field"
-          exit 1
-        fi
-
-        echo "✅ .claude-skill.json is valid"
       shell: bash
