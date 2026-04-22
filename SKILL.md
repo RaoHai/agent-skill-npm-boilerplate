@@ -1,124 +1,93 @@
 ---
-name: your-skill-name
-description: A clear description of what this skill does and when to use it. Include specific keywords that users would naturally say. Use when [specific scenarios].
-allowed-tools: Read, Bash
+name: npm-skill-scaffold
+description: "Scaffold and validate npm-packaged agent skills for Claude Code, Cursor, and Windsurf. Generates SKILL.md with frontmatter, creates package.json with install hooks, and checks skill structure against the specification. Use when creating a new agent skill, packaging a skill for npm, scaffolding a Claude Code skill, validating skill frontmatter, or setting up skill distribution."
+allowed-tools: Read, Bash, Write
 ---
 
-# Your Skill Name
+# NPM Skill Scaffold
 
-<!-- Replace this with a brief introduction to your skill -->
-A brief description of what this skill does and how it helps users.
+Generate properly structured agent skills packaged for npm distribution. Creates SKILL.md files with valid frontmatter, package.json with install/uninstall hooks, and validates the result against the skill specification.
 
 ## Instructions
 
-<!--
-This section tells Claude HOW to use your skill.
-Be specific and provide step-by-step guidance.
--->
+When the user asks to create, scaffold, or package a new agent skill:
 
-When the user [describes the scenario when this skill should be used]:
+1. **Gather requirements**: Ask for the skill name (kebab-case, max 64 chars), a one-line description, and which tools the skill needs (`Read`, `Bash`, `Edit`, `Write`, etc.).
 
-1. **First Step**: [What Claude should do first]
-   - [Additional details or substeps]
-   - [Use bash, read files, etc.]
+2. **Generate SKILL.md**: Create the skill definition with:
+   - YAML frontmatter: `name`, `description` (with a "Use when..." clause and natural trigger keywords), and `allowed-tools`
+   - An Instructions section with numbered, actionable steps
+   - At least one concrete Example showing user input and expected behavior
+   - A progressive disclosure link to `reference.md` if the skill exceeds 200 lines
 
-2. **Second Step**: [What Claude should do next]
-   - [How to process or analyze information]
-   - [What to look for]
+3. **Generate package.json**: Create the npm package configuration with `postinstall` and `preuninstall` hooks pointing to `agent-skill-installer`:
+   ```json
+   {
+     "scripts": {
+       "postinstall": "agent-skill-installer install",
+       "preuninstall": "agent-skill-installer uninstall"
+     }
+   }
+   ```
 
-3. **Final Step**: [How to complete the task]
-   - [What output to provide]
-   - [How to format the response]
+4. **Validate the skill**:
+   ```bash
+   # Check frontmatter exists and has required fields
+   sed -n '/^---$/,/^---$/p' SKILL.md | grep -E "^(name|description):"
+
+   # Verify name is kebab-case
+   grep "^name:" SKILL.md | grep -Eq "^name: [a-z0-9-]{1,64}$"
+
+   # Confirm description has trigger keywords and "Use when" clause
+   grep "^description:" SKILL.md | grep -q "Use when"
+   ```
+
+5. **Report results**: Display the generated files and suggest next steps — test locally with `node install-skill.js`, then publish with `npm publish --access public`.
 
 ## Examples
 
-<!--
-Show concrete examples of using this skill.
-This helps Claude understand the expected behavior.
--->
+### Example 1: Create a Git Commit Helper Skill
 
-### Example 1: [Scenario Name]
-
-**User asks**: "[Example user question]"
+**User asks**: "Create an agent skill that helps write conventional commit messages"
 
 **What the skill does**:
-1. [First action]
-2. [Second action]
-3. [Result]
+1. Generates `SKILL.md` with name `git-commit-helper` and description including "conventional commits", "commit message", and "Use when committing"
+2. Creates `package.json` with `@user-org/git-commit-helper`, install hooks, and `"claude-code"` keyword
+3. Validates frontmatter structure and reports the result
 
-**Expected output**:
+**Generated frontmatter**:
+```yaml
+---
+name: git-commit-helper
+description: "Generate conventional commit messages from staged changes. Analyzes diffs, detects change type, and formats messages per the Conventional Commits spec. Use when committing code, writing commit messages, or following conventional commits format."
+allowed-tools: Read, Bash
+---
 ```
-[Show example output]
-```
 
-### Example 2: [Another Scenario]
+### Example 2: Validate an Existing Skill
 
-**User asks**: "[Another example question]"
+**User asks**: "Check if my SKILL.md is valid for npm publishing"
 
 **What the skill does**:
-1. [Actions...]
-2. [More actions...]
+1. Reads `SKILL.md` and parses YAML frontmatter
+2. Checks name is kebab-case, under 64 characters, and matches the directory name
+3. Confirms description includes a "Use when..." clause with domain-specific trigger keywords
+4. Verifies `allowed-tools` only lists recognized tool names
+5. Reports pass/fail for each check with fix suggestions
 
 ## Best Practices
 
-<!-- List key guidelines for using this skill effectively -->
-
-- [Best practice 1]
-- [Best practice 2]
-- [Best practice 3]
-
-## Common Patterns
-
-<!-- Show common usage patterns or templates -->
-
-### Pattern 1: [Pattern Name]
-
-[Describe when to use this pattern]
-
-```
-[Example code or template]
-```
+- Keep skill names in kebab-case, max 64 characters — must match the installation directory name
+- Write descriptions under 300 characters with a "Use when..." clause listing 3-5 natural trigger keywords
+- Limit `allowed-tools` to only what the skill needs — fewer tools means fewer permission prompts for users
+- Keep SKILL.md under 500 lines — use `reference.md` for API docs and `examples.md` for additional usage patterns
+- Include at least one concrete example with real input/output, not just placeholder brackets
+- Test locally before publishing: run `node install-skill.js` and verify the skill appears in `~/.claude/skills/`
 
 ## Limitations
 
-<!-- Be transparent about what this skill CANNOT do -->
+- Only scaffolds skills for tools that follow the SKILL.md frontmatter convention (Claude Code, Cursor, Windsurf)
+- Does not publish to npm — the user must run `npm publish` separately
+- Cannot validate that the skill logic actually works — only checks structural correctness
 
-- [Limitation 1]
-- [Limitation 2]
-- [What to do instead]
-
-## Configuration
-
-<!-- If your skill is configurable, explain how -->
-
-You can customize this skill by editing `scripts/config.json` after installation.
-
-Available options:
-- `option1`: [Description]
-- `option2`: [Description]
-
-## Additional Resources
-
-<!-- Link to detailed documentation using Progressive Disclosure -->
-
-For more detailed information:
-- See [reference.md](reference.md) for complete API documentation
-- See [examples.md](examples.md) for more usage examples
-
----
-
-<!--
-TIPS FOR WRITING EFFECTIVE SKILLS:
-
-1. DESCRIPTION is crucial - Include specific keywords users would say
-   ❌ Bad: "Helps with files"
-   ✅ Good: "Analyzes Python files for syntax errors. Use when checking Python code, debugging syntax, or validating .py files."
-
-2. Keep SKILL.md under 500 lines - Use reference.md for detailed docs
-
-3. Be specific in instructions - Claude needs clear step-by-step guidance
-
-4. Show examples - Concrete examples are more helpful than abstract descriptions
-
-5. Test thoroughly - Install locally and verify Claude triggers it correctly
--->
+For complete specification details, see [reference.md](reference.md).
